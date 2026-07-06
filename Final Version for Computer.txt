@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Build Craft Ultimate</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #87CEEB; font-family: monospace; user-select: none; }
+        #canvas-container { width: 100%; height: 100%; display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        #platform-selector {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .selector-box { background: rgba(20, 20, 20, 0.95); border: 4px solid #333; padding: 30px; text-align: center; border-radius: 2px; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
+        .selector-title { color: #fff; font-size: 24px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 2px 2px #000; }
+        .platform-btn {
+            background: #4a4a4a; border: 2px solid #666; border-bottom: 5px solid #222; color: white;
+            padding: 14px 28px; margin: 10px; font-size: 16px; cursor: pointer; text-transform: uppercase; font-weight: bold; transition: all 0.1s;
+        }
+        .platform-btn:active { border-bottom-width: 2px; transform: translateY(3px); background: #333; }
+
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 18px; height: 18px; transform: translate(-50%, -50%); pointer-events: none; z-index: 5; }
+        #crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.75); box-shadow: 1px 1px 1px rgba(0,0,0,0.5); }
+        #crosshair::before { top: 8px; left: 0; width: 18px; height: 2px; }
+        #crosshair::after { top: 0; left: 8px; width: 2px; height: 18px; }
+
+        .mobile-hud { display: none; position: absolute; z-index: 10; touch-action: none; }
+        .joystick-container { bottom: 30px; width: 110px; height: 110px; background: rgba(0, 0, 0, 0.35); border: 3px solid rgba(255,255,255,0.4); border-radius: 50%; }
+        #left-joystick { left: 30px; }
+        #right-joystick { right: 30px; }
+        .stick { position: absolute; top: 30px; left: 30px; width: 50px; height: 50px; background: rgba(255, 255, 255, 0.7); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+
+        #fly-controls { bottom: 160px; left: 45px; flex-direction: column; gap: 12px; }
+        .fly-btn { width: 50px; height: 50px; background: rgba(0,0,0,0.5); border: 2px solid #fff; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; border-radius: 8px; }
+
+        #toggle-fly-mode-btn {
+            right: 45px; bottom: 160px; width: 80px; height: 45px;
+            background: rgba(46, 204, 113, 0.6); border: 2px solid #fff; color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: bold; border-radius: 8px; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-shadow: 1px 1px #000;
+        }
+
+        #action-bar { bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; }
+        .action-btn { width: 65px; height: 65px; background: rgba(0,0,0,0.65); border: 3px solid #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; }
+        .square-icon { width: 24px; height: 24px; border: 3px solid #fff; }
+        .triangle-icon { width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 24px solid #ff3333; }
+        .dots-icon { display: flex; gap: 4px; } .dot { width: 6px; height: 6px; background: white; border-radius: 50%; }
+
+        #selected-preview { position: absolute; top: 20px; left: 20px; color: white; background: rgba(0,0,0,0.6); padding: 8px 14px; border-radius: 4px; font-size: 14px; pointer-events: none; border-left: 4px solid #5ff2ff; z-index: 5; }
+
+        #item-hand-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
+        #weapon-canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+
+        #inventory-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(24, 24, 24, 0.95); display: none; flex-direction: column; z-index: 100; }
+        #inv-header { background: #111; color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #333; font-size: 18px; font-weight: bold; }
+        #inv-nav-controls { display: flex; align-items: center; gap: 15px; }
+        .header-action-btn { background: #333; border: 1px solid #555; color: white; padding: 6px 14px; cursor: pointer; font-family: monospace; font-weight: bold; }
+        .nav-scroll-btn { width: 35px; height: 35px; background: #222; border: 1px solid #444; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        #close-inv { cursor: pointer; color: #ff3333; padding: 0 5px; font-weight: bold; }
+
+        #inv-tabs-bar { background: #1a1a1a; display: flex; overflow-x: auto; padding: 5px 15px; gap: 8px; border-bottom: 2px solid #2a2a2a; }
+        .inv-tab-btn { padding: 8px 16px; color: #aaa; cursor: pointer; font-weight: bold; font-size: 13px; text-transform: uppercase; border-bottom: 3px solid transparent; }
+        .inv-tab-btn.active { color: #5ff2ff; border-bottom-color: #5ff2ff; background: rgba(255,255,255,0.03); }
+
+        #inv-grid { flex: 1; padding: 25px; display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; overflow-y: auto; align-content: start; }
+        .inv-item { background: #222; border: 2px solid #3a3a3a; padding: 12px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; cursor: pointer; border-radius: 4px; transition: background 0.1s; }
+        .inv-item:hover, .inv-item.active { background: #2c3e50; border-color: #5ff2ff; }
+        .inv-item canvas { width: 56px; height: 56px; image-rendering: pixelated; background: rgba(0,0,0,0.2); border-radius: 4px; }
+        .inv-item span { color: #eee; font-size: 12px; font-weight: bold; word-break: break-word; }
+
+        #import-panel { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 340px; background: #151515; border: 3px solid #444; padding: 20px; display: none; flex-direction: column; gap: 12px; z-index: 110; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+        #json-paste-box { width: 100%; height: 120px; background: #000; color: #2ecc71; border: 1px solid #333; padding: 6px; box-sizing: border-box; resize: none; font-family: monospace; font-size: 11px; }
+        .panel-button-row { display: flex; justify-content: flex-end; gap: 10px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="platform-selector">
+        <div class="selector-box">
+            <div class="selector-title">Select Control Scheme</div>
+            <button id="select-pc" class="platform-btn">Desktop (Mouse + Keyboard)</button>
+            <button id="select-mobile" class="platform-btn">Mobile Touch Controls</button>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+    <div id="crosshair"></div>
+    <div id="selected-preview">Building with: Grass</div>
+
+    <div id="item-hand-container">
+        <canvas id="weapon-canvas"></canvas>
+    </div>
+
+    <div id="left-joystick" class="joystick-container mobile-hud"><div class="stick"></div></div>
+    <div id="right-joystick" class="joystick-container mobile-hud"><div class="stick"></div></div>
+
+    <div id="fly-controls" class="mobile-hud">
+        <div id="btn-fly-up" class="fly-btn">▲</div>
+        <div id="btn-fly-down" class="fly-btn">▼</div>
+    </div>
+
+    <div id="toggle-fly-mode-btn" class="mobile-hud">FLY ✓</div>
+
+    <div id="action-bar" class="mobile-hud">
+        <div id="btn-place" class="action-btn"><div class="square-icon"></div></div>
+        <div id="btn-menu" class="action-btn"><div class="dots-icon"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+        <div id="btn-break" class="action-btn"><div class="triangle-icon"></div></div>
+    </div>
+
+    <div id="inventory-screen">
+        <div id="inv-header">
+            <span>Inventory Grid</span>
+            <div id="inv-nav-controls">
+                <button id="btn-reset-world" class="header-action-btn">Reset</button>
+                <button id="btn-download-world" class="header-action-btn">Save</button>
+                <button id="btn-open-import" class="header-action-btn">Open</button>
+                <div id="inv-scroll-up" class="nav-scroll-btn">▲</div>
+                <div id="inv-scroll-down" class="nav-scroll-btn">▼</div>
+                <div id="close-inv">X</div>
+            </div>
+        </div>
+         
+        <div id="inv-tabs-bar">
+            <div class="inv-tab-btn active" data-category="all">All Items</div>
+            <div class="inv-tab-btn" data-category="nature">Nature</div>
+            <div class="inv-tab-btn" data-category="building">Building</div>
+            <div class="inv-tab-btn" data-category="concrete">Concrete</div>
+            <div class="inv-tab-btn" data-category="wool">Wool</div>
+            <div class="inv-tab-btn" data-category="items">Items</div>
+        </div>
+         
+        <div id="inv-grid"></div>
+    </div>
+
+    <div id="import-panel">
+        <div style="font-weight:bold;">Load Saving Data</div>
+        <textarea id="json-paste-box" placeholder="Paste data array string here..."></textarea>
+        <div class="panel-button-row">
+            <button id="btn-confirm-load" class="header-action-btn" style="background:#27ae60;">Load</button>
+            <button id="btn-close-panel" class="header-action-btn">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = null; 
+        let currentTabCategory = 'all';
+        let actionTriggered = false;
+        let actionTime = 0;
+        let isMiningAction = false;
+        let miningTime = 0;
+        let isBlockingAction = false;
+        let isFlyingMode = true; 
+        let verticalVelocity = 0;
+
+        const blockTypes = [
+            { id: 'grass', name: 'Grass', color: '#557f2d', type: 'grass', category: 'nature' },
+            { id: 'dirt', name: 'Dirt', color: '#866043', type: 'dirt', category: 'nature' },
+            { id: 'stone', name: 'Stone', color: '#8a8a8a', type: 'stone', category: 'building' },
+            { id: 'cobblestone', name: 'Cobblestone', color: '#6e6e6e', type: 'cobble', category: 'building' },
+            { id: 'stone_bricks', name: 'Stone Bricks', color: '#888888', type: 'stone_brick', category: 'building' },
+            { id: 'bricks', name: 'Bricks', color: '#ba4234', type: 'red_bricks', category: 'building' },
+            { id: 'glass', name: 'Glass', color: 'rgba(200, 240, 255, 0.4)', type: 'glass', category: 'building' },
+            { id: 'sand', name: 'Sand', color: '#dfcd9f', type: 'sand', category: 'nature' },
+            { id: 'water', name: 'Water', color: '#4376e6', type: 'water', category: 'nature' },
+            { id: 'lava', name: 'Lava', color: '#e65c13', type: 'lava', category: 'nature' },
+            { id: 'stove', name: 'Furnace', color: '#5a5a5a', type: 'stove', category: 'building' },
+            { id: 'chest', name: 'Chest', color: '#785627', type: 'chest', category: 'building' },
+            { id: 'tnt', name: 'TNT Block', color: '#cc3333', type: 'tnt', category: 'building' },
+            { id: 'bedrock', name: 'Bedrock', color: '#2c2d30', type: 'bedrock', category: 'building', hidden: true },
+            
+            { id: 'oak_log', name: 'Oak Log', color: '#594324', type: 'log', woodType: 'oak', category: 'nature' },
+            { id: 'oak_planks', name: 'Oak Planks', color: '#bfa16f', type: 'plank', woodType: 'oak', category: 'building' },
+            { id: 'oak_leaves', name: 'Oak Leaves', color: '#2b5718', type: 'leaves', woodType: 'oak', category: 'nature' },
+            { id: 'fence_oak', name: 'Oak Fence', color: '#9c7f51', type: 'fence', woodType: 'oak', category: 'building' },
+            { id: 'oak_sapling', name: 'Oak Sapling', color: '#557f2d', type: 'sapling', woodType: 'oak', category: 'nature' },
+            
+            { id: 'spruce_log', name: 'Spruce Log', color: '#3f2e18', type: 'log', woodType: 'spruce', category: 'nature' },
+            { id: 'spruce_planks', name: 'Spruce Planks', color: '#684e2c', type: 'plank', woodType: 'spruce', category: 'building' },
+            { id: 'spruce_leaves', name: 'Spruce Leaves', color: '#1a390f', type: 'leaves', woodType: 'spruce', category: 'nature' },
+            { id: 'fence_spruce', name: 'Spruce Fence', color: '#543f23', type: 'fence', woodType: 'spruce', category: 'building' },
+            { id: 'spruce_sapling', name: 'Spruce Sapling', color: '#3f2e18', type: 'sapling', woodType: 'spruce', category: 'nature' },
+
+            { id: 'birch_log', name: 'Birch Log', color: '#e5e7e9', type: 'log', woodType: 'birch', category: 'nature' },
+            { id: 'birch_planks', name: 'Birch Planks', color: '#dfc090', type: 'plank', woodType: 'birch', category: 'building' },
+            { id: 'birch_leaves', name: 'Birch Leaves', color: '#446e29', type: 'leaves', woodType: 'birch', category: 'nature' },
+            { id: 'fence_birch', name: 'Birch Fence', color: '#caa977', type: 'fence', woodType: 'birch', category: 'building' },
+            { id: 'birch_sapling', name: 'Birch Sapling', color: '#e5e7e9', type: 'sapling', woodType: 'birch', category: 'nature' },
+
+            { id: 'acacia_log', name: 'Acacia Log', color: '#665d53', type: 'log', woodType: 'acacia', category: 'nature' },
+            { id: 'acacia_planks', name: 'Acacia Planks', color: '#df6d38', type: 'plank', woodType: 'acacia', category: 'building' },
+            { id: 'acacia_leaves', name: 'Acacia Leaves', color: '#4c6119', type: 'leaves', woodType: 'acacia', category: 'nature' },
+            { id: 'fence_acacia', name: 'Acacia Fence', color: '#b85425', type: 'fence', woodType: 'acacia', category: 'building' },
+            { id: 'acacia_sapling', name: 'Acacia Sapling', color: '#df6d38', type: 'sapling', woodType: 'acacia', category: 'nature' },
+
+            { id: 'c_white', name: 'White Concrete', color: '#f0f0f2', type: 'concrete', category: 'concrete' },
+            { id: 'c_orange', name: 'Orange Concrete', color: '#eb8226', type: 'concrete', category: 'concrete' },
+            { id: 'c_magenta', name: 'Magenta Concrete', color: '#c155b9', type: 'concrete', category: 'concrete' },
+            { id: 'c_light_blue', name: 'Light Blue Concrete', color: '#43a5d1', type: 'concrete', category: 'concrete' },
+            { id: 'c_yellow', name: 'Yellow Concrete', color: '#eabf26', type: 'concrete', category: 'concrete' },
+            { id: 'c_lime', name: 'Lime Concrete', color: '#6ab81e', type: 'concrete', category: 'concrete' },
+            { id: 'c_pink', name: 'Pink Concrete', color: '#d88198', type: 'concrete', category: 'concrete' },
+            { id: 'c_gray', name: 'Gray Concrete', color: '#46494a', type: 'concrete', category: 'concrete' },
+            { id: 'c_light_gray', name: 'Light Gray Concrete', color: '#8e8e8c', type: 'concrete', category: 'concrete' },
+            { id: 'c_cyan', name: 'Cyan Concrete', color: '#20828e', type: 'concrete', category: 'concrete' },
+            { id: 'c_purple', name: 'Purple Concrete', color: '#7a2fbc', type: 'concrete', category: 'concrete' },
+            { id: 'c_blue', name: 'Blue Concrete', color: '#2c3591', type: 'concrete', category: 'concrete' },
+            { id: 'c_brown', name: 'Brown Concrete', color: '#513321', type: 'concrete', category: 'concrete' },
+            { id: 'c_green', name: 'Green Concrete', color: '#495b24', type: 'concrete', category: 'concrete' },
+            { id: 'c_red', name: 'Red Concrete', color: '#8e2121', type: 'concrete', category: 'concrete' },
+            { id: 'c_black', name: 'Black Concrete', color: '#141519', type: 'concrete', category: 'concrete' },
+            
+            { id: 'w_white', name: 'White Wool', color: '#e4e4e4', type: 'wool', category: 'wool' },
+            { id: 'w_orange', name: 'Orange Wool', color: '#e28333', type: 'wool', category: 'wool' },
+            { id: 'w_magenta', name: 'Magenta Wool', color: '#be56ba', type: 'wool', category: 'wool' },
+            { id: 'w_light_blue', name: 'Light Blue Wool', color: '#6ba2db', type: 'wool', category: 'wool' },
+            { id: 'w_yellow', name: 'Yellow Wool', color: '#ccc42b', type: 'wool', category: 'wool' },
+            { id: 'w_lime', name: 'Lime Wool', color: '#68b523', type: 'wool', category: 'wool' },
+            { id: 'w_pink', name: 'Pink Wool', color: '#db8bb0', type: 'wool', category: 'wool' },
+            { id: 'w_gray', name: 'Gray Wool', color: '#434343', type: 'wool', category: 'wool' },
+            { id: 'w_light_gray', name: 'Light Gray Wool', color: '#9d9d97', type: 'wool', category: 'wool' },
+            { id: 'w_cyan', name: 'Cyan Wool', color: '#2b8997', type: 'wool', category: 'wool' },
+            { id: 'w_purple', name: 'Purple Wool', color: '#7e34bf', type: 'wool', category: 'wool' },
+            { id: 'w_blue', name: 'Blue Wool', color: '#313baf', type: 'wool', category: 'wool' },
+            { id: 'w_brown', name: 'Brown Wool', color: '#56331c', type: 'wool', category: 'wool' },
+            { id: 'w_green', name: 'Green Wool', color: '#4b6320', type: 'wool', category: 'wool' },
+            { id: 'w_red', name: 'Red Wool', color: '#a02828', type: 'wool', category: 'wool' },
+            { id: 'w_black', name: 'Black Wool', color: '#1b1b22', type: 'wool', category: 'wool' },
+
+            { id: 'ore_coal', name: 'Coal Ore', color: '#8a8a8a', type: 'ore', oreColor: '#222222', category: 'nature' },
+            { id: 'ore_iron', name: 'Iron Ore', color: '#8a8a8a', type: 'ore', oreColor: '#d8af93', category: 'nature' },
+            { id: 'ore_gold', name: 'Gold Ore', color: '#8a8a8a', type: 'ore', oreColor: '#fcee4b', category: 'nature' },
+            { id: 'ore_diamond', name: 'Diamond Ore', color: '#8a8a8a', type: 'ore', oreColor: '#5ff2ff', category: 'nature' },
+            { id: 'ore_emerald', name: 'Emerald Ore', color: '#17dd62', type: 'ore', oreColor: '#17dd62', category: 'nature' },
+            { id: 'ore_ruby', name: 'Ruby Ore', color: '#8a8a8a', type: 'ore', oreColor: '#ff2244', category: 'nature' },
+
+            { id: 'sword', name: 'Diamond Sword', color: '#5ff2ff', type: 'item_tool', category: 'items' },
+            { id: 'pickaxe', name: 'Diamond Pickaxe', color: '#5ff2ff', type: 'item_tool', category: 'items' },
+            { id: 'flint_steel', name: 'Flint and Steel', color: '#444444', type: 'item_tool', category: 'items' }
+        ];
+
+        let currentSelectionIndex = 0;
+        const CHUNK_SIZE = 12;
+
+        function getWoodColors(woodType, blockType) {
+            let logSide = '#746244', logTop = '#bfa16f', plank = '#bfa16f', leaves = '#2b5718', fence = '#9c7f51';
+            if (woodType === 'spruce') {
+                logSide = '#4b3820'; logTop = '#684e2c'; plank = '#684e2c'; leaves = '#1a390f'; fence = '#543f23';
+            } else if (woodType === 'birch') {
+                logSide = '#e5e7e9'; logTop = '#dfc090'; plank = '#dfc090'; leaves = '#446e29'; fence = '#caa977';
+            } else if (woodType === 'acacia') {
+                logSide = '#5d5750'; logTop = '#b05930'; plank = '#df6d38'; leaves = '#4c6119'; fence = '#b85425';
+            }
+            if (blockType === 'log') return { side: logSide, top: logTop, bottom: logTop };
+            if (blockType === 'plank') return plank;
+            if (blockType === 'leaves') return leaves;
+            if (blockType === 'fence' || blockType === 'sapling') return fence;
+        }
+
+        function generateComplexTexture(config, side, drawingForInventoryIcon = false) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 16; canvas.height = 16;
+            const ctx = canvas.getContext('2d');
+            let color = config.color || '#ffffff';
+
+            if (config.type === 'grass') {
+                if (side === 'top' || (drawingForInventoryIcon && side === 'all')) color = '#5b8731';
+                else if (side === 'bottom') color = '#866043';
+                else color = '#746244';
+            }
+            if (config.woodType) {
+                const res = getWoodColors(config.woodType, config.type);
+                if (config.type === 'log') {
+                    if (side === 'top' || side === 'bottom' || (drawingForInventoryIcon && side === 'all')) color = res.top;
+                    else color = res.side;
+                } else {
+                    color = res;
+                }
+            }
+            
+            if (config.type === 'glass') {
+                ctx.clearRect(0,0,16,16);
+                ctx.fillStyle = drawingForInventoryIcon ? 'rgba(150, 220, 255, 0.4)' : 'rgba(200, 240, 255, 0.15)';
+                ctx.fillRect(0,0,16,16);
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(2,14); ctx.lineTo(14,2); ctx.stroke();
+            } else if (config.type === 'tnt') {
+                ctx.fillStyle = '#cc3333'; ctx.fillRect(0,0,16,16);
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(0,5,16,6);
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(2,6,3,1); ctx.fillRect(3,7,1,3);
+                ctx.fillRect(6,6,1,4); ctx.fillRect(7,7,1,1); ctx.fillRect(8,6,1,4);
+                ctx.fillRect(11,6,3,1); ctx.fillRect(12,7,1,3);
+                
+                ctx.fillStyle = '#992222';
+                for(let i=0; i<16; i+=2) { 
+                    ctx.fillRect(i, 0, 1, 4); 
+                    ctx.fillRect(i, 12, 1, 4); 
+                }
+            } else {
+                ctx.fillStyle = color; ctx.fillRect(0, 0, 16, 16);
+            }
+
+            if (config.type !== 'glass' && config.type !== 'tnt') {
+                ctx.fillStyle = 'rgba(0,0,0,0.05)';
+                for(let i=0; i<12; i++) ctx.fillRect(Math.floor(Math.random()*16), Math.floor(Math.random()*16), 1, 1);
+
+                if (config.type === 'bedrock') {
+                    ctx.fillStyle = '#151618';
+                    for(let i=0; i<16; i+=2) ctx.fillRect(0, i, 16, 1);
+                    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                    for(let i=0; i<20; i++) ctx.fillRect(Math.floor(Math.random()*16), Math.floor(Math.random()*16), 2, 1);
+                } else if (config.type === 'sapling') {
+                    ctx.fillStyle = '#2b5718'; ctx.fillRect(6,4,4,5);
+                    ctx.fillStyle = '#746244'; ctx.fillRect(7,9,1,7);
+                } else if (config.type === 'wool') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+                    for(let i=0; i<16; i+=2) { ctx.fillRect(0, i, 16, 1); ctx.fillRect(i, 0, 1, 16); }
+                } else if (config.type === 'ore') {
+                    ctx.fillStyle = config.oreColor;
+                    ctx.fillRect(2, 3, 2, 2); ctx.fillRect(9, 2, 3, 2);
+                    ctx.fillRect(4, 9, 2, 2); ctx.fillRect(11, 11, 2, 2);
+                    ctx.fillRect(7, 6, 2, 1);
+                } else if(config.type === 'cobble') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                    ctx.fillRect(1,1,5,3); ctx.fillRect(8,2,6,4); ctx.fillRect(2,8,5,4);
+                } else if(config.type === 'stone_brick' || config.type === 'red_bricks') {
+                    ctx.fillStyle = config.type === 'red_bricks' ? '#fff' : 'rgba(0,0,0,0.2)';
+                    ctx.fillRect(0,4,16,1); ctx.fillRect(0,9,16,1); ctx.fillRect(0,14,16,1);
+                    ctx.fillRect(4,0,1,4); ctx.fillRect(12,0,1,4); ctx.fillRect(8,5,1,4);
+                } else if(config.type === 'plank' || config.type === 'fence') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+                    ctx.fillRect(0,4,16,1); ctx.fillRect(0,8,16,1); ctx.fillRect(0,12,16,1);
+                } else if(config.type === 'log') {
+                    if (side === 'top' || side === 'bottom' || (drawingForInventoryIcon && side === 'all')) {
+                        ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.strokeRect(3,3,10,10);
+                    } else {
+                        ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(3,0,2,16); ctx.fillRect(11,0,2,16);
+                        if (config.woodType === 'birch') {
+                            ctx.fillStyle = '#1c1c1c'; ctx.fillRect(0,3,4,2); ctx.fillRect(12,9,4,2); ctx.fillRect(5,13,4,1);
+                        }
+                    }
+                } else if(config.type === 'chest') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.strokeRect(1,1,14,14);
+                    if (side === 'front' || (drawingForInventoryIcon && side === 'all')) {
+                        ctx.fillStyle = '#d4af37'; ctx.fillRect(7,5,2,3); 
+                    }
+                } else if(config.type === 'stove') {
+                    if (side === 'front' || (drawingForInventoryIcon && side === 'all')) {
+                        ctx.fillStyle = '#222'; ctx.fillRect(2,2,12,12);
+                        ctx.fillStyle = '#e65c13'; ctx.fillRect(6,8,4,3);
+                        ctx.fillStyle = '#fce162'; ctx.fillRect(7,9,2,2);
+                    } else {
+                        ctx.fillStyle = '#444'; ctx.fillRect(0,0,16,16);
+                    }
+                }
+                if (config.type === 'grass' && side === 'side' && !drawingForInventoryIcon) {
+                    ctx.fillStyle = '#5b8731'; ctx.fillRect(0, 0, 16, 4);
+                    ctx.fillRect(2,4,2,2); ctx.fillRect(9,4,3,2);
+                }
+            }
+
+            if (!drawingForInventoryIcon) {
+                ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, 15, 15);
+            }
+            return drawingForInventoryIcon ? canvas : new THREE.CanvasTexture(canvas);
+        }
+
+        const materialPool = {};
+        function getCachedMaterial(config, sideFacing = 'north', tntFlash = false) {
+            const uid = `${config.id}_${sideFacing}_${tntFlash}`;
+            if (materialPool[uid]) return materialPool[uid];
+
+            if (tntFlash) {
+                const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+                materialPool[uid] = whiteMat; return whiteMat;
+            }
+
+            const isGlass = config.type === 'glass';
+            const processTexture = (s) => {
+                const tex = generateComplexTexture(config, s, false);
+                tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+                return tex;
+            };
+
+            if (['grass', 'log', 'stove', 'chest', 'tnt'].includes(config.type)) {
+                const s = 'side', t = 'top', b = 'bottom', f = 'front';
+                let faces = [s, s, t, b, s, s];
+                
+                if (config.type === 'stove' || config.type === 'chest') {
+                    if (sideFacing === 'north') faces = [s, s, t, b, f, s];
+                    if (sideFacing === 'south') faces = [s, s, t, b, s, f];
+                    if (sideFacing === 'east')  faces = [s, f, t, b, s, s];
+                    if (sideFacing === 'west')  faces = [f, s, t, b, s, s];
+                }
+
+                const materials = faces.map(fName => new THREE.MeshStandardMaterial({ 
+                    map: processTexture(fName), transparent: isGlass 
+                }));
+                materialPool[uid] = materials; return materials;
+            } else {
+                const singleTex = processTexture('all');
+                const mat = new THREE.MeshStandardMaterial({ 
+                    map: singleTex, transparent: isGlass || ['water','lava'].includes(config.type),
+                    opacity: config.type === 'glass' ? 0.4 : (config.type==='water'?0.75:1.0)
+                });
+                materialPool[uid] = mat; return mat;
+            }
+        }
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.FogExp2(0x87CEEB, 0.025);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 50);
+        const renderer = new THREE.WebGLRenderer({ antialias: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+        const skyLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        skyLight.position.set(30, 50, 20); scene.add(skyLight);
+
+        const worldWidth = 512;
+        const worldDepth = 512;
+        const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+        
+        const activeMeshes = new Map();
+        const worldBlockData = new Map(); 
+        const activeTntAnimations = new Map();
+
+        function downloadWorldAsFile() {
+            const dataDump = [];
+            for (const [key, val] of worldBlockData.entries()) {
+                const [x, y, z] = key.split(',').map(Number);
+                dataDump.push([x, y, z, val.conf.id, val.facing]);
+            }
+            const blob = new Blob([JSON.stringify(dataDump)], { type: "application/json" });
+            const downloader = document.createElement("a");
+            downloader.href = URL.createObjectURL(blob); downloader.download = "craft_save.json";
+            document.body.appendChild(downloader); downloader.click(); document.body.removeChild(downloader);
+        }
+
+        function loadWorldFromDataString(rawText) {
+            if (!rawText || rawText.trim() === "") return;
+            try {
+                const array = JSON.parse(rawText.trim());
+                for (let mesh of activeMeshes.values()) { scene.remove(mesh); }
+                activeMeshes.clear(); worldBlockData.clear(); activeTntAnimations.clear();
+                
+                array.forEach(([x, y, z, bId, faceStr]) => {
+                    const blockConf = blockTypes.find(b => b.id === bId);
+                    if (blockConf) worldBlockData.set(`${x},${y},${z}`, { conf: blockConf, facing: faceStr || 'north' });
+                });
+                updateChunks();
+                document.getElementById('import-panel').style.display = 'none';
+            } catch(e) { alert("Invalid structure format data trace."); }
+        }
+
+        function generateDefaultTerrain() {
+            worldBlockData.clear(); activeTntAnimations.clear();
+            const grassType = blockTypes.find(b => b.id === 'grass');
+            const dirtType = blockTypes.find(b => b.id === 'dirt');
+            const stoneType = blockTypes.find(b => b.id === 'stone');
+            const bedrockType = blockTypes.find(b => b.id === 'bedrock');
+
+            for(let x = -40; x <= 40; x++) {
+                for(let z = -40; z <= 40; z++) {
+                    worldBlockData.set(`${x},0,${z}`, { conf: grassType, facing: 'north' });
+                    worldBlockData.set(`${x},-1,${z}`, { conf: dirtType, facing: 'north' });
+                    worldBlockData.set(`${x},-2,${z}`, { conf: dirtType, facing: 'north' });
+                    worldBlockData.set(`${x},-3,${z}`, { conf: dirtType, facing: 'north' });
+                    for(let y = -4; y >= -13; y--) {
+                        worldBlockData.set(`${x},${y},${z}`, { conf: stoneType, facing: 'north' });
+                    }
+                    worldBlockData.set(`${x},-14,${z}`, { conf: bedrockType, facing: 'north' });
+                }
+            }
+        }
+
+        generateDefaultTerrain();
+        camera.position.set(0, 2, 5);
+        let yaw = 0, pitch = 0;
+        let flyUpActive = false, flyDownActive = false;
+
+        function buildConnectedFenceMesh(x, y, z, data) {
+            const group = new THREE.Group();
+            const mat = getCachedMaterial(data.conf, 'north');
+            
+            const centerGeo = new THREE.BoxGeometry(0.26, 1.0, 0.26);
+            const centerMesh = new THREE.Mesh(centerGeo, mat);
+            group.add(centerMesh);
+
+            const checkConnect = (dx, dy, dz) => {
+                const neighbor = worldBlockData.get(`${x+dx},${y+dy},${z+dz}`);
+                return neighbor && (neighbor.conf.type === 'fence' || neighbor.conf.type === 'log' || neighbor.conf.type === 'plank' || neighbor.conf.type === 'stone');
+            };
+
+            if (checkConnect(0, 0, -1)) {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.4), mat); m.position.set(0, 0.2, -0.3); group.add(m);
+                const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.4), mat); m2.position.set(0, -0.2, -0.3); group.add(m2);
+            }
+            if (checkConnect(0, 0, 1)) {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.4), mat); m.position.set(0, 0.2, 0.3); group.add(m);
+                const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.4), mat); m2.position.set(0, -0.2, 0.3); group.add(m2);
+            }
+            if (checkConnect(1, 0, 0)) {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.12), mat); m.position.set(0.3, 0.2, 0); group.add(m);
+                const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.12), mat); m2.position.set(0.3, -0.2, 0); group.add(m2);
+            }
+            if (checkConnect(-1, 0, 0)) {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.12), mat); m.position.set(-0.3, 0.2, 0); group.add(m);
+                const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.12), mat); m2.position.set(-0.3, -0.2, 0); group.add(m2);
+            }
+
+            group.position.set(x, y, z);
+            return group;
+        }
+
+        function updateChunks() {
+            const pX = Math.floor(camera.position.x);
+            const pY = Math.floor(camera.position.y);
+            const pZ = Math.floor(camera.position.z);
+
+            for (const [key, mesh] of activeMeshes.entries()) {
+                const [x, y, z] = key.split(',').map(Number);
+                if (Math.abs(x - pX) > CHUNK_SIZE || Math.abs(y - pY) > CHUNK_SIZE || Math.abs(z - pZ) > CHUNK_SIZE) {
+                    scene.remove(mesh); activeMeshes.delete(key);
+                }
+            }
+
+            for (let x = pX - CHUNK_SIZE; x <= pX + CHUNK_SIZE; x++) {
+                for (let y = pY - CHUNK_SIZE; y <= pY + CHUNK_SIZE; y++) {
+                    for (let z = pZ - CHUNK_SIZE; z <= pZ + CHUNK_SIZE; z++) {
+                        const key = `${x},${y},${z}`;
+                        if (worldBlockData.has(key) && !activeMeshes.has(key)) {
+                            const data = worldBlockData.get(key);
+                            let mesh;
+                            const isFlashing = activeTntAnimations.has(key) && activeTntAnimations.get(key).whiteMode;
+                            
+                            if (data.conf.type === 'fence') {
+                                mesh = buildConnectedFenceMesh(x, y, z, data);
+                            } else {
+                                mesh = new THREE.Mesh(cubeGeometry, getCachedMaterial(data.conf, data.facing, isFlashing));
+                                mesh.position.set(x, y, z);
+                            }
+                            scene.add(mesh); activeMeshes.set(key, mesh);
+                        }
+                    }
+                }
+            }
+        }
+
+        function rebuildFencesAround(x, y, z) {
+            const keys = [
+                `${x},${y},${z}`, `${x+1},${y},${z}`, `${x-1},${y},${z}`,
+                `${x},${y},${z+1}`, `${x},${y},${z-1}`
+            ];
+            keys.forEach(k => {
+                if(activeMeshes.has(k)) {
+                    scene.remove(activeMeshes.get(k)); activeMeshes.delete(k);
+                }
+            });
+        }
+
+        const hudElements = document.querySelectorAll('.mobile-hud');
+        function toggleHUD(visible) { hudElements.forEach(el => { el.style.display = visible ? 'flex' : 'none'; }); }
+
+        const moveInput = { x: 0, y: 0 };
+        const lookInput = { x: 0, y: 0 };
+
+        function initJoystick(elementId, callback) {
+            const el = document.getElementById(elementId);
+            const stick = el.querySelector('.stick');
+            let active = false, startX = 0, startY = 0;
+            
+            el.addEventListener('touchstart', (e) => {
+                active = true; const t = e.touches[0]; const rect = el.getBoundingClientRect();
+                startX = rect.left + rect.width/2; startY = rect.top + rect.height/2; e.preventDefault();
+            }, { passive: false });
+            
+            window.addEventListener('touchmove', (e) => {
+                if (!active) return;
+                let touch = null;
+                for(let t of e.touches) {
+                    if(t.clientX > window.innerWidth/2 && elementId === 'right-joystick') touch = t;
+                    if(t.clientX <= window.innerWidth/2 && elementId === 'left-joystick') touch = t;
+                }
+                if(!touch) touch = e.touches[0];
+                let dx = touch.clientX - startX, dy = touch.clientY - startY;
+                const radius = 35; const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist > radius) { dx = (dx/dist)*radius; dy = (dy/dist)*radius; }
+                stick.style.transform = `translate(${dx}px, ${dy}px)`;
+                callback(dx / radius, dy / radius);
+            });
+            window.addEventListener('touchend', () => { if (active) { active = false; stick.style.transform = ''; callback(0,0); } });
+        }
+
+        initJoystick('left-joystick', (x, y) => { moveInput.x = x; moveInput.y = -y; });
+        initJoystick('right-joystick', (x, y) => { lookInput.x = x * 1.5; lookInput.y = -y * 1.5; });
+
+        document.getElementById('btn-fly-up').addEventListener('touchstart', (e) => { e.preventDefault(); flyUpActive = true; });
+        document.getElementById('btn-fly-up').addEventListener('touchend', () => flyUpActive = false);
+        document.getElementById('btn-fly-down').addEventListener('touchstart', (e) => { e.preventDefault(); flyDownActive = true; });
+        document.getElementById('btn-fly-down').addEventListener('touchend', () => flyDownActive = false);
+
+        const flyToggleBtn = document.getElementById('toggle-fly-mode-btn');
+        flyToggleBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isFlyingMode = !isFlyingMode;
+            if (isFlyingMode) {
+                flyToggleBtn.innerText = "FLY ✓";
+                flyToggleBtn.style.background = "rgba(46, 204, 113, 0.6)";
+                verticalVelocity = 0;
+            } else {
+                flyToggleBtn.innerText = "FLY ✗";
+                flyToggleBtn.style.background = "rgba(231, 76, 60, 0.6)";
+            }
+        });
+
+        document.getElementById('select-pc').addEventListener('click', () => {
+            currentMode = 'pc'; document.getElementById('platform-selector').style.display = 'none';
+            toggleHUD(false); container.requestPointerLock(); updateChunks();
+        });
+        document.getElementById('select-mobile').addEventListener('click', () => {
+            currentMode = 'mobile'; document.getElementById('platform-selector').style.display = 'none';
+            toggleHUD(true); updateChunks();
+        });
+
+        const keysPressed = {};
+        window.addEventListener('keydown', (e) => {
+            keysPressed[e.key.toLowerCase()] = true;
+            if (e.key.toLowerCase() === 'e') {
+                if (invScreen.style.display === 'flex') {
+                    invScreen.style.display = 'none'; if(currentMode==='pc') container.requestPointerLock();
+                } else {
+                    invScreen.style.display = 'flex'; if(currentMode==='pc') document.exitPointerLock();
+                }
+            }
+            if (e.key.toLowerCase() === 'q') { triggerSquareAction(); }
+            if (e.key.toLowerCase() === 'r') { triggerTriangleAction(); }
+        });
+        window.addEventListener('keyup', (e) => { 
+            keysPressed[e.key.toLowerCase()] = false; 
+            if (e.key.toLowerCase() === 'r') { resetTriangleAction(); }
+        });
+
+        container.addEventListener('click', () => {
+            if (currentMode === 'pc' && invScreen.style.display !== 'flex' && importPanel.style.display !== 'flex') {
+                container.requestPointerLock();
+            }
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (currentMode === 'pc' && document.pointerLockElement === container) {
+                yaw -= e.movementX * 0.0025; pitch -= e.movementY * 0.0025;
+            }
+        });
+
+        const raycaster = new THREE.Raycaster();
+        const screenCenter = new THREE.Vector2(0, 0);
+
+        function handleSaplingGrowth(x, y, z, woodType) {
+            const logConf = blockTypes.find(b => b.type === 'log' && b.woodType === woodType);
+            const leafConf = blockTypes.find(b => b.type === 'leaves' && b.woodType === woodType);
+            
+            for(let h = 0; h < 5; h++) {
+                worldBlockData.set(`${x},${y+h},${z}`, { conf: logConf, facing: 'north' });
+            }
+            for(let ly = 2; ly <= 5; ly++) {
+                let radius = ly === 5 ? 1 : 2;
+                for(let lx = -radius; lx <= radius; lx++) {
+                    for(let lz = -radius; lz <= radius; lz++) {
+                        if(lx === 0 && lz === 0 && ly < 5) continue;
+                        const lkey = `${x+lx},${y+ly},${z+lz}`;
+                        if(!worldBlockData.has(lkey)) {
+                            worldBlockData.set(lkey, { conf: leafConf, facing: 'north' });
+                        }
+                    }
+                }
+            }
+        }
+
+        function igniteAllTntInWorld() {
+            for (const [key, val] of worldBlockData.entries()) {
+                if (val.conf.type === 'tnt') {
+                    if (!activeTntAnimations.has(key)) {
+                        activeTntAnimations.set(key, { clock: Math.random() * 0.3, whiteMode: false });
+                    }
+                }
+            }
+        }
+
+        function triggerTntExplosion(centerX, centerY, centerZ) {
+            igniteAllTntInWorld();
+
+            for(let dx = -2; dx <= 2; dx++) {
+                for(let dy = -2; dy <= 2; dy++) {
+                    for(let dz = -2; dz <= 2; dz++) {
+                        const targetX = centerX + dx;
+                        const targetY = centerY + dy;
+                        const targetZ = centerZ + dz;
+                        const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                        
+                        if (distance <= 2.5) {
+                            const bKey = `${targetX},${targetY},${targetZ}`;
+                            if (worldBlockData.has(bKey)) {
+                                if (worldBlockData.get(bKey).conf.type === 'bedrock') continue;
+                                if (worldBlockData.get(bKey).conf.type === 'tnt') continue;
+
+                                const mesh = activeMeshes.get(bKey);
+                                if (mesh) scene.remove(mesh);
+                                worldBlockData.delete(bKey); activeMeshes.delete(bKey);
+                                rebuildFencesAround(targetX, targetY, targetZ);
+                            }
+                        }
+                    }
+                }
+            }
+            updateChunks();
+        }
+
+        function triggerSquareAction() {
+            const currentSelection = blockTypes[currentSelectionIndex];
+            actionTriggered = true;
+            actionTime = 0;
+
+            if (currentSelection.id === 'pickaxe') {
+                isMiningAction = true;
+                miningTime = 0;
+                performMegaMine();
+                return;
+            }
+
+            if (currentSelection.id === 'flint_steel') {
+                raycaster.setFromCamera(screenCenter, camera);
+                const hits = raycaster.intersectObjects(Array.from(activeMeshes.values()), true);
+                if (hits.length > 0 && hits[0].distance < 6.5) {
+                    let targetedObj = hits[0].object;
+                    while (targetedObj.parent && targetedObj.parent !== scene) { targetedObj = targetedObj.parent; }
+                    const p = targetedObj.position;
+                    const blockKey = `${p.x},${p.y},${p.z}`;
+                    if (worldBlockData.has(blockKey) && worldBlockData.get(blockKey).conf.type === 'tnt') {
+                        igniteAllTntInWorld();
+                    }
+                }
+            }
+        }
+
+        function triggerTriangleAction() {
+            const currentSelection = blockTypes[currentSelectionIndex];
+            if (['sword', 'pickaxe', 'flint_steel'].includes(currentSelection.id)) {
+                if (currentSelection.id === 'sword') {
+                    isBlockingAction = true;
+                }
+                return; 
+            }
+            performBlockDestruction();
+        }
+
+        function resetTriangleAction() {
+            isBlockingAction = false;
+        }
+
+        function performBlockPlacement() {
+            const currentSelection = blockTypes[currentSelectionIndex];
+            if (currentSelection.type === 'item_tool' || ['sword', 'pickaxe', 'flint_steel'].includes(currentSelection.id)) {
+                return; 
+            }
+            
+            raycaster.setFromCamera(screenCenter, camera);
+            const hits = raycaster.intersectObjects(Array.from(activeMeshes.values()), true);
+            if (hits.length > 0 && hits[0].distance < 6.5) {
+                let targetedObj = hits[0].object;
+                while (targetedObj.parent && targetedObj.parent !== scene) { targetedObj = targetedObj.parent; }
+                const targetPos = new THREE.Vector3().copy(targetedObj.position).add(hits[0].face.normal);
+                const key = `${targetPos.x},${targetPos.y},${targetPos.z}`;
+                
+                if (!worldBlockData.has(key)) {
+                    let facing = 'north';
+                    const rad = yaw % (Math.PI * 2);
+                    const angle = rad < 0 ? rad + Math.PI * 2 : rad;
+                    if (angle >= 7 * Math.PI / 4 || angle < Math.PI / 4) facing = 'south';
+                    else if (angle >= Math.PI / 4 && angle < 3 * Math.PI / 4) facing = 'west';
+                    else if (angle >= 3 * Math.PI / 4 && angle < 5 * Math.PI / 4) facing = 'north';
+                    else facing = 'east';
+
+                    if (currentSelection.type === 'sapling') {
+                        handleSaplingGrowth(targetPos.x, targetPos.y, targetPos.z, currentSelection.woodType);
+                    } else {
+                        worldBlockData.set(key, { conf: currentSelection, facing: facing });
+                    }
+                    rebuildFencesAround(targetPos.x, targetPos.y, targetPos.z);
+                    updateChunks();
+                }
+            }
+        }
+
+        function performMegaMine() {
+            raycaster.setFromCamera(screenCenter, camera);
+            const hits = raycaster.intersectObjects(Array.from(activeMeshes.values()), true);
+            if (hits.length > 0 && hits[0].distance < 6.5) {
+                let targetedObj = hits[0].object;
+                while (targetedObj.parent && targetedObj.parent !== scene) { targetedObj = targetedObj.parent; }
+                const p = targetedObj.position;
+                
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dz = -1; dz <= 1; dz++) {
+                            const tx = p.x + dx;
+                            const ty = p.y + dy;
+                            const tz = p.z + dz;
+                            const targetKey = `${tx},${ty},${tz}`;
+                            
+                            if (worldBlockData.has(targetKey)) {
+                                if (worldBlockData.get(targetKey).conf.type === 'bedrock') continue;
+                                if (activeTntAnimations.has(targetKey)) activeTntAnimations.delete(targetKey);
+                                const mesh = activeMeshes.get(targetKey);
+                                if (mesh) scene.remove(mesh);
+                                activeMeshes.delete(targetKey);
+                                worldBlockData.delete(targetKey);
+                                rebuildFencesAround(tx, ty, tz);
+                            }
+                        }
+                    }
+                }
+                updateChunks();
+            }
+        }
+
+        function performBlockDestruction() {
+            raycaster.setFromCamera(screenCenter, camera);
+            const hits = raycaster.intersectObjects(Array.from(activeMeshes.values()), true);
+            if (hits.length > 0 && hits[0].distance < 6.5) {
+                let targetedObj = hits[0].object;
+                while (targetedObj.parent && targetedObj.parent !== scene) { targetedObj = targetedObj.parent; }
+                const p = targetedObj.position;
+                const targetKey = `${p.x},${p.y},${p.z}`;
+                
+                if (worldBlockData.has(targetKey)) {
+                    if (worldBlockData.get(targetKey).conf.type === 'bedrock') return; 
+                    if (activeTntAnimations.has(targetKey)) activeTntAnimations.delete(targetKey);
+                    scene.remove(targetedObj); activeMeshes.delete(targetKey); worldBlockData.delete(targetKey);
+                    rebuildFencesAround(p.x, p.y, p.z);
+                    updateChunks();
+                }
+            }
+        }
+
+        const weaponCanvas = document.getElementById('weapon-canvas');
+        const weaponCtx = weaponCanvas.getContext('2d');
+
+        function resizeWeaponCanvas() {
+            weaponCanvas.width = window.innerWidth;
+            weaponCanvas.height = window.innerHeight;
+            renderHandheldOverlay();
+        }
+        window.addEventListener('resize', resizeWeaponCanvas);
+
+        function renderHandheldOverlay() {
+            weaponCtx.clearRect(0, 0, weaponCanvas.width, weaponCanvas.height);
+            const item = blockTypes[currentSelectionIndex];
+            if (!item || !['sword', 'pickaxe', 'flint_steel'].includes(item.id)) return;
+
+            weaponCtx.imageSmoothingEnabled = false;
+            const cx = weaponCanvas.width / 2;
+            const cy = weaponCanvas.height / 2;
+
+            if (item.id === 'sword') {
+                weaponCtx.save();
+                if (isBlockingAction) {
+                    weaponCtx.translate(weaponCanvas.width - 240, weaponCanvas.height - 180);
+                    weaponCtx.rotate(-Math.PI / 4);
+                    weaponCtx.scale(3.5, 3.5);
+                } else if (actionTriggered) {
+                    let progress = actionTime;
+                    let angle = -Math.PI / 4 + Math.sin(progress * Math.PI) * -1.0;
+                    weaponCtx.translate(weaponCanvas.width - 240 + Math.sin(progress * Math.PI) * -60, weaponCanvas.height - 200 + Math.cos(progress * Math.PI) * 30);
+                    weaponCtx.rotate(angle);
+                    weaponCtx.scale(3.8, 3.8);
+                } else {
+                    weaponCtx.translate(weaponCanvas.width - 240, weaponCanvas.height - 220);
+                    weaponCtx.rotate(-Math.PI / 5);
+                    weaponCtx.scale(3.8, 3.8);
+                }
+
+                // Shorter blade structure to remain well within view boundaries
+                const swordMatrix = [
+                    {dx:-3, dy:14, w:8, h:4, c:'#5c3a21'},
+                    {dx:-3, dy:10, w:8, h:4, c:'#7a4f30'},
+                    {dx:-3, dy:6,  w:8, h:4, c:'#5c3a21'},
+                    {dx:-3, dy:2,  w:8, h:4, c:'#7a4f30'},
+                    {dx:-13, dy:-3, w:28, h:5, c:'#2c3e50'},
+                    {dx:-15, dy:-2, w:32, h:3, c:'#1f2d3d'},
+                    {dx:-3, dy:-22, w:8, h:19, c:'#5ff2ff'},
+                    {dx:-3, dy:-22, w:3, h:19, c:'#ffffff'}, 
+                    {dx:2,  dy:-22, w:3, h:19, c:'#2b9fb3'}, 
+                    {dx:-2, dy:-26, w:6, h:4, c:'#ffffff'},
+                    {dx:-1, dy:-30, w:4, h:4, c:'#ffffff'}
+                ];
+
+                swordMatrix.forEach(box => {
+                    weaponCtx.fillStyle = box.c;
+                    weaponCtx.fillRect(box.dx * 4, box.dy * 4, box.w * 4, box.h * 4);
+                });
+                weaponCtx.restore();
+
+            } else if (item.id === 'pickaxe') {
+                weaponCtx.save();
+                if (isMiningAction) {
+                    let arc = Math.sin(miningTime * Math.PI) * -35;
+                    weaponCtx.translate(weaponCanvas.width - 240, weaponCanvas.height - 200);
+                    weaponCtx.rotate((-Math.PI / 4) + (arc * Math.PI / 180));
+                } else {
+                    weaponCtx.translate(weaponCanvas.width - 240, weaponCanvas.height - 200);
+                    weaponCtx.rotate(-Math.PI / 4);
+                }
+                weaponCtx.scale(3.8, 3.8);
+
+                // Shorter handle, with pickaxe head flairs systematically angled downward
+                const pickMatrix = [
+                    {dx:-3, dy:-2,  w:6, h:24, c:'#7a4f30'},
+                    {dx:-3, dy:-2,  w:2, h:24, c:'#9c6f4c'}, 
+                    {dx:1,  dy:-2,  w:2, h:24, c:'#5c3a21'}, 
+                    
+                    // Head center
+                    {dx:-5, dy:-6, w:10, h:5, c:'#2c3e50'},
+                    
+                    // Left downward flair
+                    {dx:-10, dy:-5, w:5, h:4, c:'#2b9fb3'},
+                    {dx:-14, dy:-3, w:4, h:4, c:'#5ff2ff'},
+                    {dx:-18, dy:0,  w:4, h:4, c:'#5ff2ff'},
+                    {dx:-22, dy:4,  w:4, h:3, c:'#ffffff'}, 
+                    
+                    // Right downward flair
+                    {dx:5,   dy:-5, w:5, h:4, c:'#2b9fb3'},
+                    {dx:9,   dy:-3, w:4, h:4, c:'#5ff2ff'},
+                    {dx:13,  dy:0,  w:4, h:4, c:'#5ff2ff'},
+                    {dx:17,  dy:4,  w:4, h:3, c:'#2b9fb3'}
+                ];
+
+                pickMatrix.forEach(box => {
+                    weaponCtx.fillStyle = box.c;
+                    weaponCtx.fillRect(box.dx * 3.5, box.dy * 3.5, box.w * 3.5, box.h * 3.5);
+                });
+                weaponCtx.restore();
+
+            } else if (item.id === 'flint_steel') {
+                weaponCtx.save();
+                if (actionTriggered) {
+                    let stroke = Math.min(actionTime * 2.0, 1.0);
+                    let tX = 60 + (cx - 100 - 60) * THREE.MathUtils.smoothstep(stroke, 0, 1);
+                    let tY = (weaponCanvas.height - 180) + (cy - (weaponCanvas.height - 180)) * THREE.MathUtils.smoothstep(stroke, 0, 1);
+                    weaponCtx.translate(tX, tY);
+                } else {
+                    weaponCtx.translate(60, weaponCanvas.height - 180);
+                }
+                weaponCtx.scale(4.5, 4.5);
+                weaponCtx.fillStyle = '#2c3e50'; weaponCtx.fillRect(0,0,14,12);
+                weaponCtx.fillStyle = '#1a252f'; weaponCtx.fillRect(2,2,8,6);
+                weaponCtx.restore();
+
+                weaponCtx.save();
+                if (actionTriggered) {
+                    let stroke = Math.min(actionTime * 2.0, 1.0);
+                    let tX = (weaponCanvas.width - 140) + (cx + 20 - (weaponCanvas.width - 140)) * THREE.MathUtils.smoothstep(stroke, 0, 1);
+                    let tY = (weaponCanvas.height - 200) + (cy - (weaponCanvas.height - 200)) * THREE.MathUtils.smoothstep(stroke, 0, 1);
+                    weaponCtx.translate(tX, tY);
+                } else {
+                    weaponCtx.translate(weaponCanvas.width - 140, weaponCanvas.height - 200);
+                }
+                weaponCtx.scale(4.5, 4.5);
+                weaponCtx.fillStyle = '#bdc3c7'; weaponCtx.fillRect(0,0,12,16);
+                weaponCtx.fillStyle = '#7f8c8d'; weaponCtx.fillRect(0,0,4,16);
+                weaponCtx.restore();
+            }
+        }
+
+        function updateWeaponKeyframeAnimations() {
+            if (actionTriggered) {
+                actionTime += 0.03;
+                if (actionTime >= 1.0) { actionTriggered = false; actionTime = 0; }
+            }
+            if (isMiningAction) {
+                miningTime += 0.15;
+                if (miningTime >= 1.0) { isMiningAction = false; miningTime = 0; }
+            }
+            renderHandheldOverlay();
+        }
+
+        document.getElementById('btn-place').addEventListener('touchstart', (e) => { e.preventDefault(); triggerSquareAction(); performBlockPlacement(); });
+        document.getElementById('btn-break').addEventListener('touchstart', (e) => { e.preventDefault(); triggerTriangleAction(); });
+        document.getElementById('btn-break').addEventListener('touchend', (e) => { e.preventDefault(); resetTriangleAction(); });
+
+        const invScreen = document.getElementById('inventory-screen');
+        const invGrid = document.getElementById('inv-grid');
+        const previewLabel = document.getElementById('selected-preview');
+
+        function renderInventoryGrid() {
+            invGrid.innerHTML = '';
+            blockTypes.forEach((block, index) => {
+                if (block.hidden) return;
+                if (currentTabCategory !== 'all' && block.category !== currentTabCategory) return;
+
+                const item = document.createElement('div');
+                item.className = `inv-item ${index === currentSelectionIndex ? 'active' : ''}`;
+                
+                let previewCanvas = document.createElement('canvas');
+                previewCanvas.width = 16; previewCanvas.height = 16;
+                const iconCtx = previewCanvas.getContext('2d');
+                iconCtx.imageSmoothingEnabled = false;
+
+                if (['sword', 'pickaxe', 'flint_steel'].includes(block.id)) {
+                    if (block.id === 'sword') {
+                        iconCtx.fillStyle = '#5ff2ff'; iconCtx.fillRect(6,2,4,10); iconCtx.fillRect(4,12,8,2);
+                    } else if (block.id === 'pickaxe') {
+                        iconCtx.fillStyle = '#5ff2ff'; iconCtx.fillRect(3,2,10,3); iconCtx.fillRect(7,5,2,9);
+                    } else {
+                        iconCtx.fillStyle = '#2c3e50'; iconCtx.fillRect(2,5,6,6);
+                        iconCtx.fillStyle = '#bdc3c7'; iconCtx.fillRect(9,3,5,10);
+                    }
+                } else if (block.type === 'fence') {
+                    iconCtx.fillStyle = block.color; iconCtx.fillRect(6, 1, 4, 14);
+                } else {
+                    const rawTexCanvas = generateComplexTexture(block, 'all', true);
+                    iconCtx.drawImage(rawTexCanvas, 0, 0);
+                }
+                
+                const label = document.createElement('span');
+                label.innerText = block.name;
+                
+                item.appendChild(previewCanvas);
+                item.appendChild(label);
+                invGrid.appendChild(item);
+
+                const selectItem = () => {
+                    document.querySelectorAll('.inv-item').forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                    setSelectedSlot(index);
+                    invScreen.style.display = 'none';
+                    if (currentMode === 'pc') container.requestPointerLock();
+                };
+                item.addEventListener('touchstart', (e) => { e.preventDefault(); selectItem(); });
+                item.addEventListener('click', selectItem);
+            });
+        }
+
+        function setSelectedSlot(idx) {
+            currentSelectionIndex = idx;
+            const block = blockTypes[idx];
+            previewLabel.innerText = `Building with: ${block.name}`;
+            renderHandheldOverlay();
+        }
+
+        document.querySelectorAll('.inv-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.inv-tab-btn').forEach(el => el.classList.remove('active'));
+                btn.classList.add('active'); currentTabCategory = btn.getAttribute('data-category');
+                renderInventoryGrid();
+            });
+        });
+
+        setTimeout(() => { resizeWeaponCanvas(); renderInventoryGrid(); }, 150);
+
+        document.getElementById('btn-menu').addEventListener('touchstart', (e) => { e.preventDefault(); renderInventoryGrid(); invScreen.style.display = 'flex'; });
+        document.getElementById('btn-menu').addEventListener('click', () => { renderInventoryGrid(); invScreen.style.display = 'flex'; if(currentMode==='pc') document.exitPointerLock(); });
+        
+        const closeInventoryFunc = (e) => { e.preventDefault(); invScreen.style.display = 'none'; if (currentMode === 'pc') container.requestPointerLock(); };
+        document.getElementById('close-inv').addEventListener('click', closeInventoryFunc);
+        document.getElementById('inv-scroll-up').addEventListener('click', () => invGrid.scrollTop -= 140);
+        document.getElementById('inv-scroll-down').addEventListener('click', () => invGrid.scrollTop += 140);
+        document.getElementById('btn-download-world').addEventListener('click', downloadWorldAsFile);
+        
+        const importPanel = document.getElementById('import-panel');
+        document.getElementById('btn-open-import').addEventListener('click', () => { invScreen.style.display = 'none'; importPanel.style.display = 'flex'; });
+        document.getElementById('btn-confirm-load').addEventListener('click', () => { loadWorldFromDataString(document.getElementById('json-paste-box').value); });
+        document.getElementById('btn-close-panel').addEventListener('click', () => { importPanel.style.display = 'none'; if(currentMode==='pc') container.requestPointerLock(); });
+        document.getElementById('btn-reset-world').onclick = () => { if(confirm("Reset canvas floor setup?")) { generateDefaultTerrain(); updateChunks(); invScreen.style.display='none'; } };
+
+        function isPositionColliding(x, y, z) {
+            const checkPoints = [
+                {x: x - 0.3, y: y - 1.4, z: z - 0.3}, {x: x + 0.3, y: y - 1.4, z: z - 0.3},
+                {x: x - 0.3, y: y - 1.4, z: z + 0.3}, {x: x + 0.3, y: y - 1.4, z: z + 0.3},
+                {x: x - 0.3, y: y, z: z - 0.3}, {x: x + 0.3, y: y, z: z - 0.3}
+            ];
+            for (let pt of checkPoints) {
+                const k = `${Math.floor(pt.x + 0.5)},${Math.floor(pt.y + 0.5)},${Math.floor(pt.z + 0.5)}`;
+                if (worldBlockData.has(k)) {
+                    const type = worldBlockData.get(k).conf.type;
+                    if (type !== 'water' && type !== 'lava') return true;
+                }
+            }
+            return false;
+        }
+
+        const clock = new THREE.Clock();
+        const moveSpeed = 6.0;
+
+        updateChunks();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = Math.min(clock.getDelta(), 0.1);
+            
+            for (let [key, val] of activeTntAnimations.entries()) {
+                val.clock += delta;
+                let flashCycle = Math.floor(val.clock / 0.20) % 2 === 0;
+                if (val.whiteMode !== flashCycle) {
+                    val.whiteMode = flashCycle;
+                    if (activeMeshes.has(key)) {
+                        scene.remove(activeMeshes.get(key)); activeMeshes.delete(key);
+                    }
+                }
+                if (val.clock >= 2.2) {
+                    const [tx, ty, tz] = key.split(',').map(Number);
+                    if (activeMeshes.has(key)) { scene.remove(activeMeshes.get(key)); activeMeshes.delete(key); }
+                    worldBlockData.delete(key); activeTntAnimations.delete(key);
+                    triggerTntExplosion(tx, ty, tz);
+                }
+            }
+
+            if (currentMode === 'mobile') {
+                yaw -= lookInput.x * 1.3 * delta; pitch += lookInput.y * 1.3 * delta;
+            }
+            pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
+
+            let combinedMoveX = 0, combinedMoveY = 0;
+            if (currentMode === 'pc') {
+                if (keysPressed['w'] || keysPressed['arrowup']) combinedMoveY += 1;
+                if (keysPressed['s'] || keysPressed['arrowdown']) combinedMoveY -= 1;
+                if (keysPressed['a'] || keysPressed['arrowleft']) combinedMoveX -= 1;
+                if (keysPressed['d'] || keysPressed['arrowright']) combinedMoveX += 1;
+            } else if (currentMode === 'mobile') {
+                combinedMoveX = moveInput.x; combinedMoveY = moveInput.y;
+            }
+
+            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+            const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+            const newPos = camera.position.clone();
+            
+            newPos.addScaledVector(forward, combinedMoveY * moveSpeed * delta);
+            newPos.addScaledVector(right, combinedMoveX * moveSpeed * delta);
+            
+            if (isFlyingMode) {
+                if (flyUpActive || keysPressed[' ']) newPos.y += 4.5 * delta;
+                if (flyDownActive || keysPressed['shift']) newPos.y -= 4.5 * delta;
+            } else {
+                verticalVelocity -= 9.8 * delta; 
+                newPos.y += verticalVelocity * delta;
+
+                if (isPositionColliding(camera.position.x, newPos.y, camera.position.z)) {
+                    newPos.y = camera.position.y;
+                    verticalVelocity = 0;
+                    
+                    if ((combinedMoveX !== 0 || combinedMoveY !== 0) && isPositionColliding(newPos.x, camera.position.y, newPos.z)) {
+                        if (!isPositionColliding(newPos.x, camera.position.y + 1.1, newPos.z)) {
+                            newPos.y += 1.0; 
+                        }
+                    }
+                }
+            }
+
+            if (currentMode) {
+                if (!isPositionColliding(newPos.x, newPos.y, camera.position.z)) camera.position.x = newPos.x;
+                if (!isPositionColliding(camera.position.x, newPos.y, camera.position.z)) camera.position.y = newPos.y;
+                if (!isPositionColliding(camera.position.x, newPos.y, newPos.z)) camera.position.z = newPos.z;
+            }
+            
+            const edgeX = (worldWidth / 2) - 0.5; const edgeZ = (worldDepth / 2) - 0.5;
+            if (camera.position.x > edgeX) camera.position.x = edgeX;
+            if (camera.position.x < -edgeX) camera.position.x = -edgeX;
+            if (camera.position.z > edgeZ) camera.position.z = edgeZ;
+            if (camera.position.z < -edgeZ) camera.position.z = -edgeZ;
+
+            camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+            
+            if (isBlockingAction) { camera.position.y -= 0.5; }
+
+            updateWeaponKeyframeAnimations();
+            updateChunks();
+            renderer.render(scene, camera);
+
+            if (isBlockingAction) { camera.position.y += 0.5; }
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        animate();
+    </script>
+</body>
+</html>
