@@ -13,7 +13,7 @@ move using the right joystick look around using the left joystick the up and dow
 
 #If on PC or Laptop Read This
 
-to get the game working simply right click the html file and click open with then select your web browser not all web browser will work this version is untested the mouse may not work properly or be broken
+to get the game working simply download the finalvwrsion for pc renamethe file extension to .html then right click the html file and click open with then select your web browser not all web browser will work this version is untested the mouse may not work properly or be broken
 
 #Controls for PC or Laptop
 
